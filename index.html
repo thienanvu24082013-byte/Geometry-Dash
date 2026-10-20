@@ -138,4 +138,228 @@
 
                 // Kiểm tra chạm sàn (Đất)
                 if (player.y + player.size >= canvas.height) {
-                    player.y
+                    player.y = canvas.height - player.size;
+                    player.velocity = 0;
+                    player.isOnGround = true;
+                } else {
+                    player.isOnGround = false;
+                }
+
+                // Không cho bay vượt quá trần nhà
+                if (player.y <= 0) {
+                    player.y = 0;
+                    player.velocity = 0;
+                }
+
+                // Sinh chướng ngại vật định kỳ
+                frameCount++;
+                if (frameCount % 100 === 0) {
+                    let typeRand = Math.random();
+                    if (typeRand < 0.4) {
+                        // 1. Cột đá trên/dưới kèm gai
+                        let gap = 150;
+                        let topH = Math.floor(Math.random() * (canvas.height - gap - 120)) + 40;
+                        obstacles.push({
+                            x: canvas.width,
+                            width: 44,
+                            top: topH,
+                            bottom: canvas.height - topH - gap,
+                            type: 'pillar',
+                            passed: false
+                        });
+                    } else if (typeRand < 0.7) {
+                        // 2. Gai nhọn dưới sàn
+                        obstacles.push({
+                            x: canvas.width,
+                            width: 36,
+                            height: 35,
+                            type: 'floorSpike',
+                            passed: false
+                        });
+                    } else {
+                        // 3. Khối hộp lơ lửng
+                        let blockY = Math.floor(Math.random() * 250) + 150;
+                        obstacles.push({
+                            x: canvas.width,
+                            y: blockY,
+                            width: 60,
+                            height: 28,
+                            type: 'platform',
+                            passed: false
+                        });
+                    }
+                }
+
+                // Cập nhật chướng ngại vật và kiểm tra va chạm
+                for (let i = 0; i < obstacles.length; i++) {
+                    let obs = obstacles[i];
+                    obs.x -= 3.2; // Tốc độ trôi của map
+
+                    // Kiểm tra va chạm (AABB)
+                    if (player.x < obs.x + obs.width && player.x + player.size > obs.x) {
+                        if (obs.type === 'pillar') {
+                            if (player.y < obs.top || player.y + player.size > canvas.height - obs.bottom) {
+                                gameOver = true;
+                            }
+                        } else if (obs.type === 'floorSpike') {
+                            if (player.y + player.size > canvas.height - obs.height) {
+                                gameOver = true;
+                            }
+                        } else if (obs.type === 'platform') {
+                            if (
+                                player.y + player.size > obs.y &&
+                                player.y < obs.y + obs.height &&
+                                player.x + player.size > obs.x &&
+                                player.x < obs.x + obs.width
+                            ) {
+                                gameOver = true;
+                            }
+                        }
+                    }
+
+                    // Tính điểm khi vượt qua
+                    if (obs.x + obs.width < player.x && !obs.passed) {
+                        score++;
+                        obs.passed = true;
+                    }
+                }
+
+                // Xóa vật cản đã đi qua
+                obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+
+                // Cập nhật hạt bụi
+                for (let p of particles) {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.04;
+                }
+                particles = particles.filter(p => p.alpha > 0);
+            }
+
+            function draw() {
+                // Nền tối không gian
+                ctx.fillStyle = "#0b0f19";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Vẽ mặt đất (Sàn nhà)
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+                ctx.strokeStyle = "#38bdf8";
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, canvas.height - 10); ctx.lineTo(canvas.width, canvas.height - 10); ctx.stroke();
+
+                // Lưới nền mờ
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.03)";
+                ctx.lineWidth = 1;
+                for (let x = 0; x < canvas.width; x += 35) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+                }
+
+                // Vẽ hạt bụi
+                for (let p of particles) {
+                    ctx.fillStyle = `rgba(56, 189, 248, ${p.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Vẽ chướng ngại vật
+                for (let obs of obstacles) {
+                    if (obs.type === 'pillar') {
+                        ctx.fillStyle = "#1e293b";
+                        ctx.fillRect(obs.x, 0, obs.width, obs.top);
+                        ctx.fillRect(obs.x, canvas.height - obs.bottom, obs.width, obs.bottom);
+
+                        ctx.strokeStyle = "#38bdf8";
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(obs.x, 0, obs.width, obs.top);
+                        ctx.strokeRect(obs.x, canvas.height - obs.bottom, obs.width, obs.bottom);
+
+                        // Gai đỏ
+                        ctx.fillStyle = "#ef4444";
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, obs.top);
+                        ctx.lineTo(obs.x + obs.width / 2, obs.top + 20);
+                        ctx.lineTo(obs.x + obs.width, obs.top);
+                        ctx.fill();
+
+                        let bY = canvas.height - obs.bottom;
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, bY);
+                        ctx.lineTo(obs.x + obs.width / 2, bY - 20);
+                        ctx.lineTo(obs.x + obs.width, bY);
+                        ctx.fill();
+
+                    } else if (obs.type === 'floorSpike') {
+                        ctx.fillStyle = "#ef4444";
+                        ctx.beginPath();
+                        ctx.moveTo(obs.x, canvas.height - 10);
+                        ctx.lineTo(obs.x + obs.width / 2, canvas.height - 10 - obs.height);
+                        ctx.lineTo(obs.x + obs.width, canvas.height - 10);
+                        ctx.fill();
+
+                    } else if (obs.type === 'platform') {
+                        ctx.fillStyle = "#334155";
+                        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                        ctx.strokeStyle = "#38bdf8";
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+                    }
+                }
+
+                // Vẽ nhân vật khối đá hoa văn
+                ctx.save();
+                ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
+                ctx.rotate(player.angle);
+
+                ctx.fillStyle = "#475569";
+                ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
+
+                // Hoa văn trong khối đá
+                ctx.strokeStyle = "#38bdf8";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-player.size / 4, -player.size / 4, player.size / 2, player.size / 2);
+
+                ctx.fillStyle = "#38bdf8";
+                ctx.fillRect(-3, -3, 6, 6);
+
+                ctx.restore();
+
+                // Điểm số
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 24px Arial";
+                ctx.fillText("Điểm: " + score, 16, 36);
+
+                // Màn hình Game Over
+                if (gameOver) {
+                    ctx.fillStyle = "rgba(5, 8, 17, 0.85)";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.fillStyle = "#ef4444";
+                    ctx.font = "bold 34px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 15);
+
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.font = "16px Arial";
+                    ctx.fillText("Bấm Space hoặc Chạm để chơi lại", canvas.width / 2, canvas.height / 2 + 25);
+                    ctx.textAlign = "left";
+                }
+            }
+
+            function gameLoop() {
+                update();
+                draw();
+                if (!gameOver) {
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+
+            gameLoop();
+        })();
+    </script>
+</body>
+</html>
