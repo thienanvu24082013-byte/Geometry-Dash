@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Michidash: Flight Edition</title>
+    <title>Michidash: Neon Dash</title>
     <style>
         * {
             box-sizing: border-box;
@@ -25,18 +25,21 @@
         }
         h1 {
             margin-bottom: 8px;
-            font-size: 20px;
+            font-size: 22px;
             letter-spacing: 3px;
-            color: #38bdf8;
-            text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+            background: linear-gradient(90deg, #ff0055, #ffae00, #00ffcc, #0088ff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             text-transform: uppercase;
+            font-weight: 900;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
         }
         #game-wrapper {
             position: relative;
-            box-shadow: 0 0 40px rgba(56, 189, 248, 0.25);
-            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.25);
+            border-radius: 12px;
             overflow: hidden;
-            border: 3px solid #38bdf8;
+            border: 3px solid #00ffcc;
         }
         canvas {
             display: block;
@@ -53,7 +56,7 @@
 </head>
 <body>
 
-    <h1>MICHIDASH: FLIGHT EDITION</h1>
+    <h1>Michidash: Neon Dash</h1>
     <div id="game-wrapper">
         <canvas id="gameCanvas" width="400" height="600"></canvas>
     </div>
@@ -67,17 +70,18 @@
             // Nhân vật khối đá hoa văn
             let player = {
                 x: 60,
-                y: 500, // Khởi tạo ở dưới đất
+                y: 500,
                 size: 32,
-                gravity: 0.45,       // Trọng lực kéo xuống
-                lift: -6.5,          // Lực đẩy khi bấm bay lên
-                velocity: 0,         // Vận tốc dọc
+                gravity: 0.45,
+                lift: -6.5,
+                velocity: 0,
                 angle: 0,
                 isOnGround: false
             };
 
             let obstacles = [];
             let particles = [];
+            let trailHistory = []; // Lưu vị trí tạo vệt sáng cầu vồng phía sau
             let frameCount = 0;
             let score = 0;
             let gameOver = false;
@@ -86,10 +90,9 @@
                 if (gameOver) {
                     resetGame();
                 } else {
-                    // Bấm nhiều lần để bay lên
                     player.velocity = player.lift;
 
-                    // Hiệu ứng hạt bụi khi bay/nhảy
+                    // Hiệu ứng hạt bụi
                     for (let i = 0; i < 4; i++) {
                         particles.push({
                             x: player.x + player.size / 2,
@@ -122,6 +125,7 @@
                 player.isOnGround = false;
                 obstacles = [];
                 particles = [];
+                trailHistory = [];
                 score = 0;
                 frameCount = 0;
                 gameOver = false;
@@ -131,12 +135,20 @@
             function update() {
                 if (gameOver) return;
 
-                // Áp dụng trọng lực
                 player.velocity += player.gravity;
                 player.y += player.velocity;
                 player.angle += player.velocity * 0.03;
 
-                // Kiểm tra chạm sàn (Đất)
+                // Lưu lại vị trí để làm vệt sáng cầu vồng (Rainbow Trail)
+                trailHistory.push({
+                    x: player.x + player.size / 2,
+                    y: player.y + player.size / 2
+                });
+                if (trailHistory.length > 15) {
+                    trailHistory.shift(); // Giới hạn độ dài vệt sáng
+                }
+
+                // Chạm sàn
                 if (player.y + player.size >= canvas.height) {
                     player.y = canvas.height - player.size;
                     player.velocity = 0;
@@ -145,7 +157,7 @@
                     player.isOnGround = false;
                 }
 
-                // Không cho bay vượt quá trần nhà
+                // Chạm trần
                 if (player.y <= 0) {
                     player.y = 0;
                     player.velocity = 0;
@@ -156,7 +168,6 @@
                 if (frameCount % 100 === 0) {
                     let typeRand = Math.random();
                     if (typeRand < 0.4) {
-                        // 1. Cột đá trên/dưới kèm gai
                         let gap = 150;
                         let topH = Math.floor(Math.random() * (canvas.height - gap - 120)) + 40;
                         obstacles.push({
@@ -168,7 +179,6 @@
                             passed: false
                         });
                     } else if (typeRand < 0.7) {
-                        // 2. Gai nhọn dưới sàn
                         obstacles.push({
                             x: canvas.width,
                             width: 36,
@@ -177,7 +187,6 @@
                             passed: false
                         });
                     } else {
-                        // 3. Khối hộp lơ lửng
                         let blockY = Math.floor(Math.random() * 250) + 150;
                         obstacles.push({
                             x: canvas.width,
@@ -190,12 +199,11 @@
                     }
                 }
 
-                // Cập nhật chướng ngại vật và kiểm tra va chạm
+                // Cập nhật chướng ngại vật & kiểm tra va chạm
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
-                    obs.x -= 3.2; // Tốc độ trôi của map
+                    obs.x -= 3.2;
 
-                    // Kiểm tra va chạm (AABB)
                     if (player.x < obs.x + obs.width && player.x + player.size > obs.x) {
                         if (obs.type === 'pillar') {
                             if (player.y < obs.top || player.y + player.size > canvas.height - obs.bottom) {
@@ -217,17 +225,14 @@
                         }
                     }
 
-                    // Tính điểm khi vượt qua
                     if (obs.x + obs.width < player.x && !obs.passed) {
                         score++;
                         obs.passed = true;
                     }
                 }
 
-                // Xóa vật cản đã đi qua
                 obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
 
-                // Cập nhật hạt bụi
                 for (let p of particles) {
                     p.x += p.vx;
                     p.y += p.vy;
@@ -237,27 +242,40 @@
             }
 
             function draw() {
-                // Nền tối không gian
                 ctx.fillStyle = "#0b0f19";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Vẽ mặt đất (Sàn nhà)
+                // Vẽ mặt đất
                 ctx.fillStyle = "#1e293b";
                 ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
-                ctx.strokeStyle = "#38bdf8";
+                ctx.strokeStyle = "#00ffcc";
                 ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.moveTo(0, canvas.height - 10); ctx.lineTo(canvas.width, canvas.height - 10); ctx.stroke();
 
                 // Lưới nền mờ
-                ctx.strokeStyle = "rgba(56, 189, 248, 0.03)";
+                ctx.strokeStyle = "rgba(0, 255, 204, 0.03)";
                 ctx.lineWidth = 1;
                 for (let x = 0; x < canvas.width; x += 35) {
                     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
                 }
 
+                // Vẽ vệt sáng cầu vồng (Rainbow Trail) phía sau nhân vật
+                for (let i = 0; i < trailHistory.length; i++) {
+                    let point = trailHistory[i];
+                    let ratio = i / trailHistory.length; // Độ mờ dần về đuôi
+                    let hue = (i * 20 + frameCount * 5) % 360; // Hiệu ứng đổi màu cầu vồng
+
+                    ctx.save();
+                    ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${ratio * 0.6})`;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, player.size * 0.4 * ratio, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
                 // Vẽ hạt bụi
                 for (let p of particles) {
-                    ctx.fillStyle = `rgba(56, 189, 248, ${p.alpha})`;
+                    ctx.fillStyle = `rgba(0, 255, 204, ${p.alpha})`;
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                     ctx.fill();
@@ -270,13 +288,16 @@
                         ctx.fillRect(obs.x, 0, obs.width, obs.top);
                         ctx.fillRect(obs.x, canvas.height - obs.bottom, obs.width, obs.bottom);
 
-                        ctx.strokeStyle = "#38bdf8";
+                        ctx.strokeStyle = "#00ffcc";
                         ctx.lineWidth = 2;
                         ctx.strokeRect(obs.x, 0, obs.width, obs.top);
                         ctx.strokeRect(obs.x, canvas.height - obs.bottom, obs.width, obs.bottom);
 
-                        // Gai đỏ
-                        ctx.fillStyle = "#ef4444";
+                        // Gai đỏ neon
+                        ctx.fillStyle = "#ff0055";
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = "#ff0055";
+                        
                         ctx.beginPath();
                         ctx.moveTo(obs.x, obs.top);
                         ctx.lineTo(obs.x + obs.width / 2, obs.top + 20);
@@ -289,19 +310,23 @@
                         ctx.lineTo(obs.x + obs.width / 2, bY - 20);
                         ctx.lineTo(obs.x + obs.width, bY);
                         ctx.fill();
+                        ctx.shadowBlur = 0;
 
                     } else if (obs.type === 'floorSpike') {
-                        ctx.fillStyle = "#ef4444";
+                        ctx.fillStyle = "#ff0055";
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = "#ff0055";
                         ctx.beginPath();
                         ctx.moveTo(obs.x, canvas.height - 10);
                         ctx.lineTo(obs.x + obs.width / 2, canvas.height - 10 - obs.height);
                         ctx.lineTo(obs.x + obs.width, canvas.height - 10);
                         ctx.fill();
+                        ctx.shadowBlur = 0;
 
                     } else if (obs.type === 'platform') {
                         ctx.fillStyle = "#334155";
                         ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-                        ctx.strokeStyle = "#38bdf8";
+                        ctx.strokeStyle = "#00ffcc";
                         ctx.lineWidth = 2;
                         ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
                     }
@@ -318,48 +343,9 @@
                 ctx.lineWidth = 2.5;
                 ctx.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
 
-                // Hoa văn trong khối đá
-                ctx.strokeStyle = "#38bdf8";
+                // Hoa văn bên trong
+                ctx.strokeStyle = "#00ffcc";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#00ffcc";
                 ctx.lineWidth = 2;
-                ctx.strokeRect(-player.size / 4, -player.size / 4, player.size / 2, player.size / 2);
-
-                ctx.fillStyle = "#38bdf8";
-                ctx.fillRect(-3, -3, 6, 6);
-
-                ctx.restore();
-
-                // Điểm số
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 24px Arial";
-                ctx.fillText("Điểm: " + score, 16, 36);
-
-                // Màn hình Game Over
-                if (gameOver) {
-                    ctx.fillStyle = "rgba(5, 8, 17, 0.85)";
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    ctx.fillStyle = "#ef4444";
-                    ctx.font = "bold 34px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 15);
-
-                    ctx.fillStyle = "#f8fafc";
-                    ctx.font = "16px Arial";
-                    ctx.fillText("Bấm Space hoặc Chạm để chơi lại", canvas.width / 2, canvas.height / 2 + 25);
-                    ctx.textAlign = "left";
-                }
-            }
-
-            function gameLoop() {
-                update();
-                draw();
-                if (!gameOver) {
-                    requestAnimationFrame(gameLoop);
-                }
-            }
-
-            gameLoop();
-        })();
-    </script>
-</body>
-</html>
+                ctx.strokeRect(-player
