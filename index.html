@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Michidash Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: Arial, sans-serif;
+            flex-direction: column;
+        }
+        canvas {
+            border: 3px solid #fff;
+            background-color: #70c5ce;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        p {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Michidash Game</h1>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <p>Nhấn phím <b>Space (Khoảng trắng)</b> hoặc chạm vào màn hình để Nhảy!</p>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Cấu hình nhân vật Michi
+        let player = {
+            x: 50,
+            y: 300,
+            width: 30,
+            height: 30,
+            gravity: 0.5,
+            lift: -9,
+            velocity: 0,
+            color: "#ff4757"
+        };
+
+        // Vật cản & Điểm số
+        let obstacles = [];
+        let frameCount = 0;
+        let score = 0;
+        let gameOver = false;
+
+        // Điều khiển (Nút Space)
+        document.addEventListener("keydown", function(e) {
+            if (e.code === "Space") {
+                if (gameOver) {
+                    resetGame();
+                } else {
+                    player.velocity = player.lift;
+                }
+            }
+        });
+
+        // Điều khiển cảm ứng (Điện thoại)
+        canvas.addEventListener("touchstart", function(e) {
+            e.preventDefault();
+            if (gameOver) {
+                resetGame();
+            } else {
+                player.velocity = player.lift;
+            }
+        });
+
+        function resetGame() {
+            player.y = 300;
+            player.velocity = 0;
+            obstacles = [];
+            score = 0;
+            frameCount = 0;
+            gameOver = false;
+            animate();
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            // Trọng lực rơi
+            player.velocity += player.gravity;
+            player.y += player.velocity;
+
+            // Chạm sàn hoặc trần
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                gameOver = true;
+            }
+            if (player.y < 0) {
+                player.y = 0;
+                player.velocity = 0;
+            }
+
+            // Tạo vật cản mới mỗi 100 frame
+            frameCount++;
+            if (frameCount % 100 === 0) {
+                let gap = 130;
+                let topHeight = Math.floor(Math.random() * (canvas.height - gap - 100)) + 30;
+                obstacles.push({
+                    x: canvas.width,
+                    top: topHeight,
+                    bottom: canvas.height - topHeight - gap,
+                    width: 50,
+                    passed: false
+                });
+            }
+
+            // Cập nhật vật cản
+            for (let i = 0; i < obstacles.length; i++) {
+                let obs = obstacles[i];
+                obs.x -= 3; // Tốc độ di chuyển
+
+                // Kiểm tra va chạm
+                if (
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    (player.y < obs.top || player.y + player.height > canvas.height - obs.bottom)
+                ) {
+                    gameOver = true;
+                }
+
+                // Tính điểm
+                if (obs.x + obs.width < player.x && !obs.passed) {
+                    score++;
+                    obs.passed = true;
+                }
+            }
+
+            // Xóa vật cản ra khỏi màn hình
+            obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+        }
+
+        function draw() {
+            // Xóa nền
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Vẽ nhân vật
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            // Vẽ vật cản
+            ctx.fillStyle = "#2ed573";
+            for (let obs of obstacles) {
+                ctx.fillRect(obs.x, 0, obs.width, obs.top);
+                ctx.fillRect(obs.x, canvas.height - obs.bottom, obs.width, obs.bottom);
+            }
+
+            // Vẽ điểm số
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "24px Arial";
+            ctx.fillText("Điểm: " + score, 10, 30);
+
+            // Màn hình Game Over
+            if (gameOver) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
+                ctx.font = "18px Arial";
+                ctx.fillText("Nhấn Space để chơi lại", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.textAlign = "left";
+            }
+        }
+
+        function animate() {
+            update();
+            draw();
+            if (!gameOver) {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        // Bắt đầu game
+        animate();
+    </script>
+</body>
+</html>
